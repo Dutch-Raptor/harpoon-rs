@@ -1,0 +1,208 @@
+{
+  "leader": [
+    "LeftControl",
+    "LeftAlt"
+  ],
+  "actions": [
+    {
+      "keys": [
+        "H"
+      ],
+      "action": "ToggleQuickMenu"
+    },
+    {
+      "keys": [
+        "J"
+      ],
+      "action": {
+        "NavigateToNthWindow": 1
+      }
+    },
+    {
+      "keys": [
+        "K"
+      ],
+      "action": {
+        "NavigateToNthWindow": 2
+      }
+    },
+    {
+      "keys": [
+        "L"
+      ],
+      "action": {
+        "NavigateToNthWindow": 3
+      }
+    },
+    {
+      "keys": [
+        "SemiColon"
+      ],
+      "action": {
+        "NavigateToNthWindow": 4
+      }
+    },
+    {
+      "keys": [
+        "U"
+      ],
+      "action": {
+        "NavigateToNthWindow": 5
+      }
+    },
+    {
+      "keys": [
+        "I"
+      ],
+      "action": {
+        "NavigateToNthWindow": 6
+      }
+    },
+    {
+      "keys": [
+        "O"
+      ],
+      "action": {
+        "NavigateToNthWindow": 7
+      }
+    },
+    {
+      "keys": [
+        "P"
+      ],
+      "action": {
+        "NavigateToNthWindow": 8
+      }
+    },
+    {
+      "keys": [
+        "M"
+      ],
+      "action": "NavigateToNextWindow"
+    },
+    {
+      "keys": [
+        "N"
+      ],
+      "action": "NavigateToPreviousWindow"
+    },
+    {
+      "keys": [
+        "A"
+      ],
+      "action": "AddCurrentApplicationWindow"
+    },
+    {
+      "keys": [
+        "S"
+      ],
+      "action": "ToggleInhibit"
+    }
+  ],
+  "quick_menu_config": {
+    "actions": [
+      {
+        "keys": [
+          "Q"
+        ],
+        "action": "Quit"
+      },
+      {
+        "keys": [
+          "Escape"
+        ],
+        "action": "Quit"
+      },
+      {
+        "keys": [
+          "J"
+        ],
+        "action": "MoveCursorDown"
+      },
+      {
+        "keys": [
+          "K"
+        ],
+        "action": "MoveCursorUp"
+      },
+      {
+        "keys": [
+          "Down"
+        ],
+        "action": "MoveCursorDown"
+      },
+      {
+        "keys": [
+          "Up"
+        ],
+        "action": "MoveCursorUp"
+      },
+      {
+        "keys": [
+          "LeftAlt",
+          "J"
+        ],
+        "action": "SwapDown"
+      },
+      {
+        "keys": [
+          "LeftAlt",
+          "K"
+        ],
+        "action": "SwapUp"
+      },
+      {
+        "keys": [
+          "LeftAlt",
+          "Down"
+        ],
+        "action": "SwapDown"
+      },
+      {
+        "keys": [
+          "LeftAlt",
+          "Up"
+        ],
+        "action": "SwapUp"
+      },
+      {
+        "keys": [
+          "Enter"
+        ],
+        "action": "Select"
+      },
+      {
+        "keys": [
+          "Space"
+        ],
+        "action": "Select"
+      },
+      {
+        "keys": [
+          "BackSpace"
+        ],
+        "action": "Cut"
+      },
+      {
+        "keys": [
+          "LeftShift",
+          "D"
+        ],
+        "action": "Cut"
+      },
+      {
+        "keys": [
+          "P"
+        ],
+        "action": "PasteDown"
+      },
+      {
+        "keys": [
+          "LeftShift",
+          "P"
+        ],
+        "action": "PasteUp"
+      }
+    ]
+  }
+}

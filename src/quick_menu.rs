@@ -1,11 +1,14 @@
+use std::sync::{mpsc::Sender, Arc, Mutex};
+
 use fltk::{
     app::{self, event_key, event_state, event_text},
-    enums::{Align, Color, FrameType, Key, Shortcut},
+    enums::{Align, Color, Event, FrameType, Key, Shortcut},
     frame::Frame,
     group::{Flex, Group},
     prelude::*,
     window::Window,
 };
+use serde::{Deserialize, Serialize};
 use windows::Win32::{
     Foundation::HWND,
     System::Threading::{AttachThreadInput, GetCurrentThreadId},
@@ -17,26 +20,84 @@ use windows::Win32::{
     },
 };
 
+use crate::{
+    config::{QuickMenuAction, QuickMenuConfig, StoredQuickMenuConfig},
+    harpoon::HarpoonEvent,
+};
+
 pub struct QuickMenu {
-    pub app: Option<app::App>,
-    pub quick_menu_window: Option<Window>,
+    pub app: app::App,
+    pub quick_menu_window: Window,
     pub open: bool,
+    event_sender: Arc<Mutex<Sender<HarpoonEvent>>>,
+    config: QuickMenuConfig,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum QuickMenuEvent {
+    /// Move the cursor down
+    MoveCursorDown,
+    /// Move the cursor up
+    MoveCursorUp,
+    /// Navigate to the selected window and close the quick menu
+    Select,
+    /// Close the quick menu
+    Quit,
+    /// Cut the selected window and put it in the clipboard
+    Cut,
+    /// Paste the selected window from the clipboard after the selected window
+    PasteDown,
+    /// Paste the selected window from the clipboard before the selected window
+    PasteUp,
+    /// Swap the selected window with the window above it
+    SwapUp,
+    /// Swap the selected window with the window below it
+    SwapDown,
+}
+
+impl Into<QuickMenuConfig> for StoredQuickMenuConfig {
+    fn into(self) -> QuickMenuConfig {
+        QuickMenuConfig {
+            actions: self
+                .actions
+                .into_iter()
+                .map(|action| QuickMenuAction {
+                    trigger: action.to_fltk_shortcut(),
+                    action: action.action,
+                })
+                .collect(),
+        }
+    }
 }
 
 impl QuickMenu {
-    pub fn new() -> Self {
-        let mut qm = QuickMenu {
-            app: None,
-            quick_menu_window: None,
+    pub fn new(
+        event_sender: Arc<Mutex<Sender<HarpoonEvent>>>,
+        config: StoredQuickMenuConfig,
+    ) -> Self {
+        let app = QuickMenu::create_app();
+        let quick_menu_window = QuickMenu::create_window();
+        let config = config.into();
+        let mut quick_menu = QuickMenu {
+            app,
+            quick_menu_window,
             open: false,
+            event_sender,
+            config,
         };
-        qm.create_app();
-        qm
+
+        quick_menu.register_window_event_handlers();
+
+        quick_menu
     }
 
-    fn create_app(&mut self) {
+    fn create_app() -> app::App {
         let app = app::App::default().with_scheme(app::Scheme::Gtk);
         app::background(31, 41, 59);
+        app
+    }
+
+    fn create_window() -> Window {
         let (screen_w, screen_h) = app::screen_size();
         let mut window = Window::default()
             .with_size(400, 300)
@@ -59,22 +120,86 @@ impl QuickMenu {
         window.add(&banner);
         window.end();
 
-        self.quick_menu_window = Some(window);
-
-        self.app = Some(app);
+        window
     }
 
+    fn register_window_event_handlers(&mut self) {
+        let event_sender = Arc::clone(&self.event_sender);
+        let actions = self.config.actions.clone();
+
+        self.quick_menu_window.handle(move |_, ev| match ev {
+            Event::Unfocus => {
+                match event_sender.lock() {
+                    Ok(sender) => {
+                        _ = sender.send(HarpoonEvent::CloseQuickMenu);
+                    }
+                    Err(_) => {}
+                }
+
+                true
+            }
+
+            Event::KeyDown => {
+                let event_key = event_key();
+                let event_state = event_state();
+                let event_text = event_text().to_lowercase();
+
+                println!(
+                    "Key down event: {:?} {:?} {:?}",
+                    event_key, event_state, event_text
+                );
+
+                // Loop through all actions and check if any of them match the key combination
+                for key_combination in actions.iter() {
+                    if key_combination.trigger.keys != event_key
+                        || key_combination.trigger.modifiers != event_state
+                    {
+                        continue;
+                    }
+
+                    let text = &key_combination.trigger.text;
+
+                    // check if the text contains exactly the same characters
+                    // as the event text
+                    let text_matches = text.is_empty()
+                        || (text.len() == event_text.len()
+                            && text.chars().all(|char| event_text.contains(char))
+                            && event_text.chars().all(|char| text.contains(char)));
+
+                    if !text_matches {
+                        continue;
+                    }
+
+                    match event_sender.lock() {
+                        Ok(event_sender) => {
+                            _ = event_sender
+                                .send(HarpoonEvent::QuickMenuEvent(key_combination.action));
+                        }
+                        Err(err) => {
+                            println!("Failed to lock event sender: {}", err);
+                        }
+                    }
+                }
+
+                true
+            }
+            _ => false,
+        });
+    }
+
+    /// Hides the quick menu.
     pub fn hide(&mut self) {
-        self.quick_menu_window.as_mut().unwrap().hide();
+        self.quick_menu_window.hide();
+        self.open = false;
     }
 
+    /// Shows the quick menu.
+    ///
+    /// Also tries to set the window as the foreground window.
     pub fn show(&mut self) {
-        self.quick_menu_window.as_mut().unwrap().show();
-
-        let window = match self.quick_menu_window.as_mut() {
-            Some(window) => window,
-            None => return,
-        };
+        let window = &mut self.quick_menu_window;
+        self.open = true;
+        window.show();
 
         let hwnd = HWND(window.raw_handle() as isize);
 
@@ -115,11 +240,16 @@ impl QuickMenu {
         }
     }
 
+    /// Toggle the visibility of the quick menu
     pub fn toggle(&mut self) {
-        self.open = !self.open;
-        match self.open {
+        let should_open = !self.open;
+        match should_open {
             true => self.show(),
             false => self.hide(),
         }
+    }
+
+    pub fn handle_event(&mut self, event: QuickMenuEvent) {
+        println!("Handling event in qm: {:?}", event);
     }
 }

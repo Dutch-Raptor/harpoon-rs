@@ -3,8 +3,8 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use crate::quick_menu::QuickMenu;
-use crate::window::ApplicationWindow;
+use crate::{config, quick_menu::QuickMenu};
+use crate::{quick_menu::QuickMenuEvent, window::ApplicationWindow};
 use fltk::{
     app::{self, event_key, event_state, event_text},
     enums::{Align, Color, FrameType, Key, Shortcut},
@@ -21,29 +21,46 @@ pub struct Harpoon {
     quick_menu: QuickMenu,
     pub event_receiver: Receiver<HarpoonEvent>,
     pub event_sender: Arc<Mutex<Sender<HarpoonEvent>>>,
+    config: config::Config,
+    /// whether or not to disable keyboard events from being inhibited to other applications
+    disable_inhibit: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum HarpoonEvent {
     AddCurrentApplicationWindow,
     ToggleQuickMenu,
+    CloseQuickMenu,
     NavigateToNextWindow,
     NavigateToPreviousWindow,
     NavigateToNthWindow(usize),
     ToggleInhibit,
     Quit,
+    SetWindows(Vec<ApplicationWindow>),
+    QuickMenuEvent(QuickMenuEvent),
 }
 
 impl Harpoon {
     pub fn new() -> Harpoon {
-        let quick_menu = QuickMenu::new();
         let (event_sender, event_receiver) = mpsc::channel::<HarpoonEvent>();
         let event_sender = Arc::new(Mutex::new(event_sender));
+
+        let config = match config::load_config_from_disk() {
+            Ok(config) => config,
+            Err(e) => {
+                println!("Error loading config: {}", e);
+                config::Config::default()
+            }
+        };
+        let quick_menu =
+            QuickMenu::new(Arc::clone(&event_sender), config.quick_menu_config.clone());
 
         let mut harpoon = Harpoon {
             quick_menu,
             event_receiver,
             event_sender,
+            config,
+            disable_inhibit: false,
         };
 
         harpoon.register_hooks();
@@ -54,11 +71,12 @@ impl Harpoon {
     pub fn run(&mut self) {
         loop {
             self.handle_main_events();
-            match app::wait_for(0.01) {
+            // Somehow waiting for events also handles them in fltk-rs (??) so we don't need to
+            // explicitly handle them here.
+            match app::wait_for(1.0 / 120.0) {
                 Ok(_) => (),
-                Err(err) => println!("Error: {}", err),
+                Err(err) => println!("Error waiting for fltk events: {}", err),
             };
-            self.handle_window_events();
         }
     }
 
@@ -67,6 +85,11 @@ impl Harpoon {
         match msg {
             Ok(event) => match event {
                 HarpoonEvent::ToggleQuickMenu => self.quick_menu.toggle(),
+                HarpoonEvent::CloseQuickMenu
+                | HarpoonEvent::QuickMenuEvent(QuickMenuEvent::Quit) => self.quick_menu.hide(),
+                HarpoonEvent::QuickMenuEvent(event) => {
+                    self.quick_menu.handle_event(event);
+                }
                 _ => {
                     println!("Handling event {:?}", event);
                 }
@@ -81,25 +104,20 @@ impl Harpoon {
         }
     }
 
-    fn handle_window_events(&self) {}
-
     fn register_hooks(&mut self) {
-        self.register_hotkey(
-            &[Keyboard::LeftControl, Keyboard::LeftAlt, Keyboard::H],
-            HarpoonEvent::ToggleQuickMenu,
-            true,
-        );
-        self.register_hotkey(
-            &[Keyboard::LeftControl, Keyboard::LeftAlt, Keyboard::J],
-            HarpoonEvent::NavigateToNthWindow(1),
-            true,
-        );
-        self.register_hotkey(
-            &[Keyboard::LeftControl, Keyboard::LeftAlt, Keyboard::K],
-            HarpoonEvent::NavigateToNthWindow(2),
-            true,
-        );
+        let config = &self.config;
+        let disable_inhibit = self.disable_inhibit;
+
+        for action in config.actions.iter() {
+            let mut hotkey = config.leader.clone();
+            hotkey.extend(action.keys.clone());
+
+            let event = action.action.clone();
+
+            self.register_hotkey(&hotkey, event, !disable_inhibit);
+        }
     }
+
     fn register_hotkey(&self, hotkey: &[Keyboard], event: HarpoonEvent, inhibit: bool) {
         let sender_clone = Arc::clone(&self.event_sender);
         mki::register_hotkey(

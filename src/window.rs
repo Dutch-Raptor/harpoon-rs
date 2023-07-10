@@ -13,10 +13,10 @@ use windows::Win32::{
     },
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 /// This struct represents a window that is running on the system.
 pub struct ApplicationWindow {
-    pub window_id: HWND,
+    pub window_id: isize,
     pub title: String,
     pub process_path: String,
     pub position: WindowPosition,
@@ -48,6 +48,9 @@ pub enum WindowState {
     * `window: &ApplicationWindow` - A reference to the window to navigate to.
 */
 pub fn navigate_to_window(window: &ApplicationWindow) {
+    // Convert the isize window_id to a HWND
+    let window_handle = HWND(window.window_id);
+
     /*
      * we need to attach to the foreground thread to be able to set
      * the foreground window and set keyboard focus to the window
@@ -75,7 +78,7 @@ pub fn navigate_to_window(window: &ApplicationWindow) {
     match unsafe {
         DeferWindowPos(
             defer_window_position,
-            window.window_id,
+            window_handle,
             HWND_TOP,
             window.position.x as i32,
             window.position.y as i32,
@@ -95,11 +98,11 @@ pub fn navigate_to_window(window: &ApplicationWindow) {
     unsafe { EndDeferWindowPos(defer_window_position) };
 
     // bring the window to the foreground
-    unsafe { SetForegroundWindow(window.window_id) };
+    unsafe { SetForegroundWindow(window_handle) };
 
     // bring the window to the top and make it active
-    unsafe { BringWindowToTop(window.window_id) };
-    unsafe { SetActiveWindow(window.window_id) };
+    unsafe { BringWindowToTop(window_handle) };
+    unsafe { SetActiveWindow(window_handle) };
 
     // set the window state
     let target_window_state = match window.state {
@@ -110,14 +113,14 @@ pub fn navigate_to_window(window: &ApplicationWindow) {
 
     let mut current_window_state = WINDOWPLACEMENT::default();
     let got_current_window_state =
-        unsafe { GetWindowPlacement(window.window_id, &mut current_window_state).as_bool() };
+        unsafe { GetWindowPlacement(window_handle, &mut current_window_state).as_bool() };
 
     let should_restore_window_state =
         !got_current_window_state || current_window_state.showCmd != target_window_state;
 
     // restore the window state if necessary
     if should_restore_window_state {
-        unsafe { ShowWindow(window.window_id, target_window_state) };
+        unsafe { ShowWindow(window_handle, target_window_state) };
     }
 
     // detach from the foreground thread

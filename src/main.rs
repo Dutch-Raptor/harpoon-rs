@@ -1,11 +1,10 @@
 use harpoon::Harpoon;
 
+mod config;
 mod harpoon;
+mod keyboard;
 mod quick_menu;
 mod window;
-
-#[macro_use]
-extern crate lazy_static;
 
 fn main() {
     let mut harpoon = Harpoon::new();
