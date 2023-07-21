@@ -42,6 +42,7 @@ pub struct Harpoon {
     windows: Vec<ApplicationWindow>,
     /// the last window id that was focused
     last_window_id: Option<isize>,
+    clipboard: Option<ApplicationWindow>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -83,6 +84,7 @@ impl Harpoon {
             disable_inhibit: false,
             windows: vec![],
             last_window_id: None,
+            clipboard: None,
         };
 
         let app_hwnd = create_window();
@@ -115,11 +117,14 @@ impl Harpoon {
         match msg {
             Ok(event) => match event {
                 HarpoonEvent::ToggleQuickMenu => self.quick_menu.toggle(),
+
                 HarpoonEvent::CloseQuickMenu
                 | HarpoonEvent::QuickMenuEvent(QuickMenuEvent::Quit) => self.quick_menu.hide(),
+
                 HarpoonEvent::QuickMenuEvent(event) => {
                     self.quick_menu.handle_event(event);
                 }
+
                 HarpoonEvent::AddCurrentApplicationWindow => {
                     self.add_current_application_window().unwrap_or_else(|err| {
                         println!("Error adding current application window: {}", err)
@@ -127,13 +132,18 @@ impl Harpoon {
                     self.quick_menu
                         .update_state(QuickMenuStateUpdate::new().with_windows(&self.windows));
                 }
+
                 HarpoonEvent::NavigateToNextWindow => self.navigate_relative(1),
                 HarpoonEvent::NavigateToPreviousWindow => self.navigate_relative(-1),
+                HarpoonEvent::NavigateToWindowByIndex(i) => {
+                    self.navigate_to_window_by_index(i);
+                }
+
                 HarpoonEvent::SwapWindows { from, to } => self.swap_windows(from, to),
 
-                HarpoonEvent::NavigateToWindowByIndex(n) => {
-                    self.navigate_to_window_by_index(n);
-                }
+                HarpoonEvent::CutWindow(i) => self.cut_window(i),
+                HarpoonEvent::PasteWindow(i) => self.paste_window(i),
+
                 _ => {
                     println!("Handling event {:?}", event);
                 }
@@ -218,7 +228,7 @@ impl Harpoon {
     /// navigate relative to it.
     /// Otherwise, navigate relative to the window last navigated to.
     /// If all else fails, navigate to the first window in the list.
-    fn navigate_relative(&mut self, n: isize) {
+    fn navigate_relative(&mut self, delta: isize) {
         let hwnd = unsafe { GetForegroundWindow() }.0;
 
         let windows = &self.windows;
@@ -251,7 +261,7 @@ impl Harpoon {
         let windows_len = windows.len();
 
         let next_window_index =
-            (current_window_index as isize + windows_len as isize + n) as usize % windows_len;
+            (current_window_index as isize + windows_len as isize + delta) as usize % windows_len;
 
         match windows.get(next_window_index) {
             Some(window) => {
@@ -321,5 +331,33 @@ impl Harpoon {
                 .with_windows(&self.windows)
                 .with_cursor_delta(cursor_delta),
         );
+    }
+
+    fn cut_window(&mut self, index: usize) {
+        if self.windows.get(index).is_none() {
+            return;
+        }
+        let window = self.windows.remove(index);
+        self.quick_menu.update_state(
+            QuickMenuStateUpdate::new()
+                .with_windows(&self.windows)
+                .with_cursor_delta(-1),
+        );
+        self.clipboard = Some(window);
+    }
+
+    fn paste_window(&mut self, index: usize) {
+        if let Some(window) = self.clipboard.take() {
+            let mut index = index;
+            if index > self.windows.len() {
+                index = self.windows.len();
+            }
+            self.windows.insert(index, window);
+            self.quick_menu.update_state(
+                QuickMenuStateUpdate::new()
+                    .with_windows(&self.windows)
+                    .with_cursor_delta(1),
+            );
+        }
     }
 }

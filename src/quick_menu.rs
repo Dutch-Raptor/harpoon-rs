@@ -376,6 +376,48 @@ impl QuickMenu {
                     }
                 }
             }
+            QuickMenuEvent::Cut => {
+                let cursor = self.state.cursor as usize;
+                let event_sender = match self.event_sender.lock() {
+                    Ok(sender) => sender,
+                    Err(_) => return,
+                };
+
+                match event_sender.send(HarpoonEvent::CutWindow(cursor)) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Error sending event: {}", err);
+                    }
+                }
+            }
+            QuickMenuEvent::PasteUp => {
+                let cursor = self.state.cursor as usize;
+                let event_sender = match self.event_sender.lock() {
+                    Ok(sender) => sender,
+                    Err(_) => return,
+                };
+
+                match event_sender.send(HarpoonEvent::PasteWindow(cursor)) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Error sending event: {}", err);
+                    }
+                }
+            }
+            QuickMenuEvent::PasteDown => {
+                let cursor = self.state.cursor as usize;
+                let event_sender = match self.event_sender.lock() {
+                    Ok(sender) => sender,
+                    Err(_) => return,
+                };
+
+                match event_sender.send(HarpoonEvent::PasteWindow(cursor + 1)) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Error sending event: {}", err);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -424,7 +466,6 @@ impl QuickMenu {
         }
 
         if windows.is_empty() {
-            println!("No windows added, press <ctrl> + <alt> + a to add a window");
             let mut item = Frame::default().size_of_parent();
             item.set_frame(FrameType::FlatBox);
             item.set_align(Align::Left | Align::Inside);
@@ -454,6 +495,11 @@ impl QuickMenu {
                 } else {
                     self.state.windows.push(window.clone());
                 }
+            }
+
+            // remove any extra windows
+            if self.state.windows.len() > size {
+                self.state.windows.truncate(size);
             }
 
             updated = true;
