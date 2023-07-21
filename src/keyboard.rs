@@ -271,12 +271,12 @@ impl FltkKeyCombination {
             keys_enum.insert(key);
         }
 
-        println!("===============================");
-        println!("In: {:?}", shortcut);
-        println!("************* OUT *************");
-        println!("modifiers: {:?}", modifier_enum);
-        println!("keys: {:?}", keys_enum);
-        println!("text: {:?}", text);
+        // println!("===============================");
+        // println!("In: {:?}", shortcut);
+        // println!("************* OUT *************");
+        // println!("modifiers: {:?}", modifier_enum);
+        // println!("keys: {:?}", keys_enum);
+        // println!("text: {:?}", text);
 
         Self {
             keys: keys_enum,

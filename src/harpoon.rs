@@ -3,8 +3,16 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use crate::{config, quick_menu::QuickMenu};
+use crate::{
+    assets::get_app_icon_filepath,
+    config,
+    notification::notify,
+    quick_menu::{QuickMenu, QuickMenuStateUpdate},
+    window::{self, create_window, get_current_window, get_window_title, navigate_to_window},
+};
 use crate::{quick_menu::QuickMenuEvent, window::ApplicationWindow};
+use active_win_pos_rs::get_active_window;
+use anyhow::Result;
 use fltk::{
     app::{self, event_key, event_state, event_text},
     enums::{Align, Color, FrameType, Key, Shortcut},
@@ -14,8 +22,15 @@ use fltk::{
     window::Window,
 };
 use mki::Keyboard;
+use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
-use windows::core::{Error, Result, HSTRING};
+use windows::{
+    core::{Error, HSTRING},
+    Win32::{
+        Foundation::HWND,
+        UI::WindowsAndMessaging::{GetForegroundWindow, IsWindow},
+    },
+};
 
 pub struct Harpoon {
     quick_menu: QuickMenu,
@@ -24,6 +39,9 @@ pub struct Harpoon {
     config: config::Config,
     /// whether or not to disable keyboard events from being inhibited to other applications
     disable_inhibit: bool,
+    windows: Vec<ApplicationWindow>,
+    /// the last window id that was focused
+    last_window_id: Option<isize>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,10 +51,12 @@ pub enum HarpoonEvent {
     CloseQuickMenu,
     NavigateToNextWindow,
     NavigateToPreviousWindow,
-    NavigateToNthWindow(usize),
+    NavigateToWindowByIndex(usize),
     ToggleInhibit,
     Quit,
-    SetWindows(Vec<ApplicationWindow>),
+    SwapWindows { from: usize, to: usize },
+    CutWindow(usize),
+    PasteWindow(usize),
     QuickMenuEvent(QuickMenuEvent),
 }
 
@@ -61,7 +81,17 @@ impl Harpoon {
             event_sender,
             config,
             disable_inhibit: false,
+            windows: vec![],
+            last_window_id: None,
         };
+
+        let app_hwnd = create_window();
+
+        _ = dbg!(notify(
+            app_hwnd,
+            "This is a test",
+            "TEST TEST TEST TEST TEST"
+        ));
 
         harpoon.register_hooks();
 
@@ -89,6 +119,20 @@ impl Harpoon {
                 | HarpoonEvent::QuickMenuEvent(QuickMenuEvent::Quit) => self.quick_menu.hide(),
                 HarpoonEvent::QuickMenuEvent(event) => {
                     self.quick_menu.handle_event(event);
+                }
+                HarpoonEvent::AddCurrentApplicationWindow => {
+                    self.add_current_application_window().unwrap_or_else(|err| {
+                        println!("Error adding current application window: {}", err)
+                    });
+                    self.quick_menu
+                        .update_state(QuickMenuStateUpdate::new().with_windows(&self.windows));
+                }
+                HarpoonEvent::NavigateToNextWindow => self.navigate_relative(1),
+                HarpoonEvent::NavigateToPreviousWindow => self.navigate_relative(-1),
+                HarpoonEvent::SwapWindows { from, to } => self.swap_windows(from, to),
+
+                HarpoonEvent::NavigateToWindowByIndex(n) => {
+                    self.navigate_to_window_by_index(n);
                 }
                 _ => {
                     println!("Handling event {:?}", event);
@@ -127,6 +171,155 @@ impl Harpoon {
                 sender.send(event.clone()).unwrap();
             },
             inhibit,
+        );
+    }
+
+    fn add_current_application_window(&mut self) -> Result<()> {
+        let windows = &mut self.windows;
+        let application_window = match get_current_window() {
+            Some(window) => window,
+            None => return Err(anyhow!("No window found")),
+        };
+
+        if windows.contains(&application_window) {
+            return Ok(());
+        }
+
+        if windows.len() == 0 {
+            windows.push(application_window);
+            return Ok(());
+        }
+
+        // if the window does aleady exist, update it
+        if let Some(index) = windows
+            .iter()
+            .position(|w| w.window_id == application_window.window_id)
+        {
+            windows[index] = application_window;
+            return Ok(());
+        }
+
+        windows.push(application_window);
+
+        Ok(())
+    }
+
+    fn navigate_to_window_by_index(&mut self, index: usize) {
+        let window = match self.windows.get(index) {
+            Some(window) => window,
+            None => return,
+        };
+        self.navigate_to_window(window.clone());
+    }
+
+    /// get the current active window
+    ///
+    /// If the current window is in the list of windows, then we can
+    /// navigate relative to it.
+    /// Otherwise, navigate relative to the window last navigated to.
+    /// If all else fails, navigate to the first window in the list.
+    fn navigate_relative(&mut self, n: isize) {
+        let hwnd = unsafe { GetForegroundWindow() }.0;
+
+        let windows = &self.windows;
+        let current_window_index = windows.iter().position(|w| w.window_id == hwnd);
+
+        if current_window_index.is_none() {
+            // navigate to the window to which the user navigated most recently
+            let hwnd = self.last_window_id;
+            if let Some(hwnd) = hwnd {
+                // find the window in the list of windows
+                match windows.iter().find(|w| w.window_id == hwnd) {
+                    Some(window) => {
+                        let window_clone = window.clone();
+                        self.navigate_to_window(window_clone);
+                        return;
+                    }
+                    None => {
+                        // if we can't find the last window, navigate to the first window
+                        self.navigate_to_window_by_index(1);
+                        return;
+                    }
+                };
+            }
+            self.navigate_to_window_by_index(1); // if there is no last window, navigate to the first window;
+            return;
+        }
+
+        let current_window_index = current_window_index.unwrap();
+
+        let windows_len = windows.len();
+
+        let next_window_index =
+            (current_window_index as isize + windows_len as isize + n) as usize % windows_len;
+
+        match windows.get(next_window_index) {
+            Some(window) => {
+                let window = window.clone();
+                self.navigate_to_window(window);
+            }
+            None => {
+                // if we can't find the last window, navigate to the first window
+                self.navigate_to_window_by_index(1);
+            }
+        }
+    }
+
+    fn navigate_to_window(&mut self, window: ApplicationWindow) {
+        let exists = unsafe { IsWindow(HWND(window.window_id)).as_bool() };
+
+        let closed_prefix = "[CLOSED] ";
+
+        if !exists {
+            if window.process_name.starts_with(closed_prefix) {
+                return;
+            }
+            let windows = &mut self.windows;
+
+            if let Some(index) = windows.iter().position(|w| w.window_id == window.window_id) {
+                windows[index].process_name = format!("{}{}", closed_prefix, window.process_name);
+            }
+            return;
+        }
+
+        navigate_to_window(&window);
+        self.last_window_id = Some(window.window_id);
+
+        let _ = self.update_window_title(window.window_id);
+        self.quick_menu.update_state(
+            QuickMenuStateUpdate::new()
+                .with_windows(&self.windows)
+                .with_active_window(window.window_id),
+        );
+    }
+
+    fn update_window_title(&mut self, window_id: isize) -> Result<()> {
+        let title = match get_window_title(window_id) {
+            Some(title) => title,
+            None => {
+                return Err(anyhow!(
+                    "Failed to get window title for window id: {:?}",
+                    window_id
+                ));
+            }
+        };
+
+        let windows = &mut self.windows;
+
+        if let Some(index) = windows.iter().position(|w| w.window_id == window_id) {
+            windows[index].title = title;
+        }
+
+        Ok(())
+    }
+
+    fn swap_windows(&mut self, from_index: usize, to_index: usize) {
+        self.windows.swap(from_index, to_index);
+        let cursor_delta = to_index as isize - from_index as isize;
+        self.quick_menu.update_state(
+            QuickMenuStateUpdate::new()
+                .with_windows(&self.windows)
+                .with_cursor_delta(cursor_delta),
         );
     }
 }

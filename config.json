@@ -15,7 +15,7 @@
         "J"
       ],
       "action": {
-        "NavigateToNthWindow": 1
+        "NavigateToWindowByIndex": 0
       }
     },
     {
@@ -23,7 +23,7 @@
         "K"
       ],
       "action": {
-        "NavigateToNthWindow": 2
+        "NavigateToWindowByIndex": 1
       }
     },
     {
@@ -31,7 +31,7 @@
         "L"
       ],
       "action": {
-        "NavigateToNthWindow": 3
+        "NavigateToWindowByIndex": 2
       }
     },
     {
@@ -39,7 +39,7 @@
         "SemiColon"
       ],
       "action": {
-        "NavigateToNthWindow": 4
+        "NavigateToWindowByIndex": 3
       }
     },
     {
@@ -47,7 +47,7 @@
         "U"
       ],
       "action": {
-        "NavigateToNthWindow": 5
+        "NavigateToWindowByIndex": 4
       }
     },
     {
@@ -55,7 +55,7 @@
         "I"
       ],
       "action": {
-        "NavigateToNthWindow": 6
+        "NavigateToWindowByIndex": 5
       }
     },
     {
@@ -63,7 +63,7 @@
         "O"
       ],
       "action": {
-        "NavigateToNthWindow": 7
+        "NavigateToWindowByIndex": 6
       }
     },
     {
@@ -71,7 +71,7 @@
         "P"
       ],
       "action": {
-        "NavigateToNthWindow": 8
+        "NavigateToWindowByIndex": 7
       }
     },
     {

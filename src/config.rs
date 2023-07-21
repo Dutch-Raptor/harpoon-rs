@@ -73,35 +73,35 @@ impl Config {
                 },
                 Action {
                     keys: vec![Keyboard::J],
-                    action: HarpoonEvent::NavigateToNthWindow(1),
+                    action: HarpoonEvent::NavigateToWindowByIndex(0),
                 },
                 Action {
                     keys: vec![Keyboard::K],
-                    action: HarpoonEvent::NavigateToNthWindow(2),
+                    action: HarpoonEvent::NavigateToWindowByIndex(1),
                 },
                 Action {
                     keys: vec![Keyboard::L],
-                    action: HarpoonEvent::NavigateToNthWindow(3),
+                    action: HarpoonEvent::NavigateToWindowByIndex(2),
                 },
                 Action {
                     keys: vec![Keyboard::SemiColon],
-                    action: HarpoonEvent::NavigateToNthWindow(4),
+                    action: HarpoonEvent::NavigateToWindowByIndex(3),
                 },
                 Action {
                     keys: vec![Keyboard::U],
-                    action: HarpoonEvent::NavigateToNthWindow(5),
+                    action: HarpoonEvent::NavigateToWindowByIndex(4),
                 },
                 Action {
                     keys: vec![Keyboard::I],
-                    action: HarpoonEvent::NavigateToNthWindow(6),
+                    action: HarpoonEvent::NavigateToWindowByIndex(5),
                 },
                 Action {
                     keys: vec![Keyboard::O],
-                    action: HarpoonEvent::NavigateToNthWindow(7),
+                    action: HarpoonEvent::NavigateToWindowByIndex(6),
                 },
                 Action {
                     keys: vec![Keyboard::P],
-                    action: HarpoonEvent::NavigateToNthWindow(8),
+                    action: HarpoonEvent::NavigateToWindowByIndex(7),
                 },
                 Action {
                     keys: vec![Keyboard::M],
