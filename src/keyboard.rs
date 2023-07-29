@@ -284,4 +284,29 @@ impl FltkKeyCombination {
             text,
         }
     }
+
+    pub fn is_triggered(
+        &self,
+        event_key: fltk::enums::Key,
+        event_state: fltk::enums::Shortcut,
+        event_text: &str,
+    ) -> bool {
+        if self.keys != event_key || self.modifiers != event_state {
+            return false;
+        }
+
+        let text = &self.text;
+
+        // check if the text contains exactly the same characters
+        // as the event text
+        let text_matches = text.is_empty()
+            || (text.len() == event_text.len()
+                && text.chars().all(|char| event_text.contains(char))
+                && event_text.chars().all(|char| text.contains(char)));
+
+        if !text_matches {
+            return false;
+        }
+        return true;
+    }
 }

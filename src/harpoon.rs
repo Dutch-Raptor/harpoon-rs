@@ -4,18 +4,14 @@ use std::sync::{
 };
 
 use crate::{
-    assets::get_app_icon_filepath,
     config,
-    notification::notify,
     quick_menu::{QuickMenu, QuickMenuStateUpdate},
-    window::{self, create_window, get_current_window, get_window_title, navigate_to_window},
+    window::{create_window, get_current_window, get_window_title, navigate_to_window},
 };
 use crate::{quick_menu::QuickMenuEvent, window::ApplicationWindow};
-use active_win_pos_rs::get_active_window;
 use anyhow::Result;
 use fltk::{
     app::{self, event_key, event_state, event_text},
-    enums::{Align, Color, FrameType, Key, Shortcut},
     frame::Frame,
     group::{Flex, Group},
     prelude::*,
@@ -45,7 +41,7 @@ pub struct Harpoon {
     clipboard: Option<ApplicationWindow>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum HarpoonEvent {
     AddCurrentApplicationWindow,
     ToggleQuickMenu,
@@ -73,8 +69,7 @@ impl Harpoon {
                 config::Config::default()
             }
         };
-        let quick_menu =
-            QuickMenu::new(Arc::clone(&event_sender), config.quick_menu_config.clone());
+        let quick_menu = QuickMenu::new(Arc::clone(&event_sender), config.clone());
 
         let mut harpoon = Harpoon {
             quick_menu,
@@ -89,11 +84,24 @@ impl Harpoon {
 
         let app_hwnd = create_window();
 
-        _ = dbg!(notify(
-            app_hwnd,
-            "This is a test",
-            "TEST TEST TEST TEST TEST"
-        ));
+        // let leader = harpoon.config.leader.clone();
+        // let quick_menu_shortcut = harpoon
+        //     .config
+        //     .actions
+        //     .iter()
+        //     .filter(|a| a.action == HarpoonEvent::ToggleQuickMenu)
+        //     .map(|a| a.keys.clone());
+        //
+        // let shortcut_string = if leader.len() > 0 {
+        //     format!("{}+Space", leader)
+        // } else {
+        //     "Ctrl+Shift+Space".to_string()
+        // };
+        // _ = dbg!(notify(
+        //     app_hwnd,
+        //     "Harpoon",
+        //     "Harpoon is running in the background. Press Ctrl+Shift+Space to open the quick menu."
+        // ));
 
         harpoon.register_hooks();
 
@@ -129,8 +137,6 @@ impl Harpoon {
                     self.add_current_application_window().unwrap_or_else(|err| {
                         println!("Error adding current application window: {}", err)
                     });
-                    self.quick_menu
-                        .update_state(QuickMenuStateUpdate::new().with_windows(&self.windows));
                 }
 
                 HarpoonEvent::NavigateToNextWindow => self.navigate_relative(1),
@@ -197,6 +203,8 @@ impl Harpoon {
 
         if windows.len() == 0 {
             windows.push(application_window);
+            self.quick_menu
+                .update_state(QuickMenuStateUpdate::new().with_windows(&self.windows));
             return Ok(());
         }
 
@@ -205,11 +213,23 @@ impl Harpoon {
             .iter()
             .position(|w| w.window_id == application_window.window_id)
         {
+            let hwnd = windows[index].window_id;
             windows[index] = application_window;
+            self.quick_menu.update_state(
+                QuickMenuStateUpdate::new()
+                    .with_windows(&self.windows)
+                    .with_active_window(hwnd),
+            );
             return Ok(());
         }
 
+        let hwnd = application_window.window_id;
         windows.push(application_window);
+        self.quick_menu.update_state(
+            QuickMenuStateUpdate::new()
+                .with_windows(&self.windows)
+                .with_active_window(hwnd),
+        );
 
         Ok(())
     }
@@ -359,5 +379,12 @@ impl Harpoon {
                     .with_cursor_delta(1),
             );
         }
+    }
+
+    /// Toggles whether keyboard event propagation is inhibited.
+    fn toggle_disable_inhibit(&mut self) {
+        self.disable_inhibit = !self.disable_inhibit;
+        self.quick_menu
+            .update_state(QuickMenuStateUpdate::new().with_disable_inhibit(self.disable_inhibit));
     }
 }

@@ -10,6 +10,7 @@ use fltk::{
     frame::Frame,
     group::{Flex, Group},
     prelude::*,
+    text::TextDisplay,
     window::Window,
 };
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ use windows::Win32::{
 };
 
 use crate::{
-    config::{QuickMenuAction, QuickMenuConfig, StoredQuickMenuConfig},
+    config::{Config, QuickMenuAction, QuickMenuConfig, StoredQuickMenuConfig},
     harpoon::HarpoonEvent,
     window::ApplicationWindow,
 };
@@ -35,8 +36,9 @@ pub struct QuickMenu {
     quick_menu_window: Window,
     window_list: Flex,
     event_sender: Arc<Mutex<Sender<HarpoonEvent>>>,
-    config: QuickMenuConfig,
+    config: Config,
     state: QuickMenuState,
+    qm_config: QuickMenuConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +52,7 @@ pub struct QuickMenuState {
     pub cursor: isize,
     pub windows: Vec<ApplicationWindow>,
     pub active_window: Option<isize>,
+    pub disable_inhibit: bool,
 }
 
 /// QuickMenuStateUpdate is used to update the state of the quick menu
@@ -57,6 +60,7 @@ pub struct QuickMenuState {
 pub struct QuickMenuStateUpdate<'a> {
     pub windows: Option<&'a Vec<ApplicationWindow>>,
     pub move_cursor: Option<MoveCursor>,
+    pub disable_inhibit: Option<bool>,
 }
 
 impl<'a> QuickMenuStateUpdate<'a> {
@@ -64,6 +68,7 @@ impl<'a> QuickMenuStateUpdate<'a> {
         Self {
             windows: None,
             move_cursor: None,
+            disable_inhibit: None,
         }
     }
 
@@ -88,9 +93,15 @@ impl<'a> QuickMenuStateUpdate<'a> {
         self.move_cursor = Some(MoveCursor::ToWindow(active_window));
         self
     }
+
+    /// Set the indicator for whether or not to disable inhibit key events propagation
+    pub fn with_disable_inhibit(&'a mut self, disable_inhibit: bool) -> &'a mut Self {
+        self.disable_inhibit = Some(disable_inhibit);
+        self
+    }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum QuickMenuEvent {
     /// Move the cursor down
     MoveCursorDown,
@@ -128,13 +139,10 @@ impl Into<QuickMenuConfig> for StoredQuickMenuConfig {
 }
 
 impl QuickMenu {
-    pub fn new(
-        event_sender: Arc<Mutex<Sender<HarpoonEvent>>>,
-        config: StoredQuickMenuConfig,
-    ) -> Self {
+    pub fn new(event_sender: Arc<Mutex<Sender<HarpoonEvent>>>, config: Config) -> Self {
         let app = QuickMenu::create_app();
-        let (quick_menu_window, window_list) = QuickMenu::create_window();
-        let config = config.into();
+        let (quick_menu_window, window_list) = QuickMenu::create_window(&config);
+        let qm_config = config.quick_menu_config.clone().into();
         let mut quick_menu = QuickMenu {
             app,
             quick_menu_window,
@@ -144,9 +152,11 @@ impl QuickMenu {
                 cursor: 0,
                 windows: vec![],
                 active_window: None,
+                disable_inhibit: false,
             },
             event_sender,
             config,
+            qm_config,
         };
 
         quick_menu.register_window_event_handlers();
@@ -160,18 +170,25 @@ impl QuickMenu {
         app
     }
 
-    fn create_window() -> (Window, Flex) {
+    fn create_window(config: &Config) -> (Window, Flex) {
         let (screen_w, screen_h) = app::screen_size();
+        let width = 600;
+        let height = 400;
+        let banner_height = 44;
+        let footer_height = 18;
         let mut window = Window::default()
-            .with_size(400, 300)
-            .with_pos(screen_w as i32 / 2 - 200, screen_h as i32 / 2 - 150)
+            .with_size(width, height)
+            .with_pos(
+                screen_w as i32 / 2 - width / 2,
+                screen_h as i32 / 2 - height / 2,
+            )
             .with_label("Quick Menu");
         window.set_border(false);
         window.set_color(Color::from_rgb(31, 41, 59));
 
         let mut banner = Frame::default()
             .with_label("Harpoon")
-            .with_size(400, 50)
+            .with_size(width, 50)
             .with_pos(0, 0);
 
         banner.set_frame(FrameType::FlatBox);
@@ -181,12 +198,39 @@ impl QuickMenu {
         banner.set_align(Align::Center | Align::Inside);
 
         let window_list = Flex::default()
-            .with_size(400, 250)
-            .with_pos(0, 50)
+            .with_size(width, height - banner_height - footer_height)
+            .with_pos(0, banner_height)
             .column()
             .with_align(Align::Top | Align::Inside);
 
         window.add(&banner);
+
+        let mut flex_parent = Group::default()
+            .with_size(width, height - banner_height - footer_height)
+            .with_pos(0, banner_height);
+
+        flex_parent.add(&window_list);
+
+        window.add(&flex_parent);
+
+        let mut footer = Frame::default()
+            .with_size(width, footer_height)
+            .with_pos(0, height - footer_height);
+
+        footer.set_frame(FrameType::FlatBox);
+        footer.set_color(Color::from_rgb(51, 65, 85));
+        footer.set_label_size(12);
+        footer.set_label_color(Color::from_rgb(226, 232, 240));
+
+        if let Some(quit_shortcut_string) =
+            config.get_action_shortcut_string(&HarpoonEvent::QuickMenuEvent(QuickMenuEvent::Quit))
+        {
+            footer.set_label(&format!("Press {} to quit", quit_shortcut_string));
+        } else {
+            footer.set_label("Press Q to quit");
+        }
+
+        window.add(&footer);
         window.end();
 
         (window, window_list)
@@ -194,7 +238,7 @@ impl QuickMenu {
 
     fn register_window_event_handlers(&mut self) {
         let event_sender = Arc::clone(&self.event_sender);
-        let actions = self.config.actions.clone();
+        let actions = self.qm_config.actions.clone();
 
         self.quick_menu_window.handle(move |_, ev| match ev {
             Event::Unfocus => {
@@ -231,22 +275,7 @@ impl QuickMenu {
 
         // Loop through all actions and check if any of them match the key combination
         for key_combination in actions.iter() {
-            if key_combination.trigger.keys != event_key
-                || key_combination.trigger.modifiers != event_state
-            {
-                continue;
-            }
-
-            let text = &key_combination.trigger.text;
-
-            // check if the text contains exactly the same characters
-            // as the event text
-            let text_matches = text.is_empty()
-                || (text.len() == event_text.len()
-                    && text.chars().all(|char| event_text.contains(char))
-                    && event_text.chars().all(|char| text.contains(char)));
-
-            if !text_matches {
+            if !key_combination.is_triggered(event_key, event_state, &event_text) {
                 continue;
             }
 
@@ -259,6 +288,8 @@ impl QuickMenu {
                 }
             }
             handled = true;
+
+            // Don't break here, as we want to send the event for all matching actions
         }
         handled
     }
@@ -321,8 +352,6 @@ impl QuickMenu {
     }
 
     pub fn handle_event(&mut self, event: QuickMenuEvent) {
-        println!("Handling event in qm: {:?}", event);
-
         match event {
             QuickMenuEvent::MoveCursorUp => {
                 self.update_state(QuickMenuStateUpdate::new().with_cursor_delta(-1));
@@ -469,7 +498,16 @@ impl QuickMenu {
             let mut item = Frame::default().size_of_parent();
             item.set_frame(FrameType::FlatBox);
             item.set_align(Align::Left | Align::Inside);
-            item.set_label("No windows added, press <ctrl> + <alt> + a to add a window");
+
+            let add_window_label = match self
+                .config
+                .get_action_shortcut_string(&HarpoonEvent::AddCurrentApplicationWindow)
+            {
+                Some(shortcut) => format!("No windows added, press {} to add a window", shortcut),
+                None => "No windows added, press <ctrl> + <alt> + a to add a window".to_string(),
+            };
+
+            item.set_label(&add_window_label);
 
             item.set_color(Color::from_rgb(31, 41, 59));
             item.set_label_color(Color::from_rgb(226, 232, 240));

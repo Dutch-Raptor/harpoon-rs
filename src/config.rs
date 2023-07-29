@@ -1,9 +1,10 @@
+use fltk::enums::{Key, Shortcut};
 use mki::Keyboard;
 use serde::{Deserialize, Serialize};
 
 use crate::{harpoon::HarpoonEvent, keyboard::FltkKeyCombination, quick_menu::QuickMenuEvent};
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
     pub leader: Vec<Keyboard>,
     pub actions: Vec<Action<HarpoonEvent>>,
@@ -19,6 +20,13 @@ pub struct QuickMenuConfig {
 pub struct QuickMenuAction {
     pub trigger: FltkKeyCombination,
     pub action: QuickMenuEvent,
+}
+
+impl QuickMenuAction {
+    pub fn is_triggered(&self, event_key: Key, event_state: Shortcut, event_text: &str) -> bool {
+        self.trigger
+            .is_triggered(event_key, event_state, event_text)
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -188,6 +196,60 @@ impl Config {
                     },
                 ],
             },
+        }
+    }
+
+    pub fn get_action_shortcut_string(&self, event: &HarpoonEvent) -> Option<String> {
+        let mut shortcut_string = String::new();
+        match event {
+            HarpoonEvent::QuickMenuEvent(event) => {
+                for action in self.quick_menu_config.actions.iter() {
+                    if action.action == *event {
+                        let mut keys = Vec::new();
+                        for key in action.keys.iter() {
+                            keys.push(*key);
+                        }
+
+                        if shortcut_string.len() > 0 {
+                            shortcut_string.push_str(" or ");
+                        }
+                        shortcut_string.push_str(
+                            &keys
+                                .iter()
+                                .map(|key| format!("{:?}", key))
+                                .collect::<Vec<String>>()
+                                .join(" + "),
+                        );
+                    }
+                }
+            }
+            _ => {
+                for action in self.actions.iter() {
+                    if action.action == *event {
+                        let mut keys = self.leader.clone();
+                        for key in action.keys.iter() {
+                            keys.push(*key);
+                        }
+
+                        if shortcut_string.len() > 0 {
+                            shortcut_string.push_str(" or ");
+                        }
+                        shortcut_string.push_str(
+                            &keys
+                                .iter()
+                                .map(|key| format!("{:?}", key))
+                                .collect::<Vec<String>>()
+                                .join(" + "),
+                        );
+                    }
+                }
+            }
+        }
+
+        if shortcut_string.is_empty() {
+            None
+        } else {
+            Some(shortcut_string)
         }
     }
 }
