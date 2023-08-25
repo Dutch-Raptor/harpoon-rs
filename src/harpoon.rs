@@ -11,17 +11,13 @@ use crate::{
 use crate::{quick_menu::QuickMenuEvent, window::ApplicationWindow};
 use anyhow::Result;
 use fltk::{
-    app::{self, event_key, event_state, event_text},
-    frame::Frame,
-    group::{Flex, Group},
+    app::{self},
     prelude::*,
-    window::Window,
 };
 use mki::Keyboard;
-use notify_rust::Notification;
+
 use serde::{Deserialize, Serialize};
 use windows::{
-    core::{Error, HSTRING},
     Win32::{
         Foundation::HWND,
         UI::WindowsAndMessaging::{GetForegroundWindow, IsWindow},
@@ -82,7 +78,7 @@ impl Harpoon {
             clipboard: None,
         };
 
-        let app_hwnd = create_window();
+        let _app_hwnd = create_window();
 
         // let leader = harpoon.config.leader.clone();
         // let quick_menu_shortcut = harpoon

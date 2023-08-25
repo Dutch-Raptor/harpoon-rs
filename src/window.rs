@@ -1,9 +1,9 @@
-use std::{ffi::CString, path::Path, sync::mpsc::channel, thread};
+use std::{path::Path, sync::mpsc::channel, thread};
 
 use active_win_pos_rs::get_active_window;
 use serde::{Deserialize, Serialize};
 use windows::{
-    core::{PCSTR, PCWSTR, PWSTR},
+    core::{PCSTR, PWSTR},
     Win32::{
         Foundation::{CloseHandle, BOOL, HWND, LPARAM, LRESULT, MAX_PATH, WPARAM},
         Graphics::Gdi::HBRUSH,
@@ -20,9 +20,9 @@ use windows::{
                 BeginDeferWindowPos, BringWindowToTop, CreateWindowExA, DefWindowProcA,
                 DeferWindowPos, DispatchMessageA, EndDeferWindowPos, GetForegroundWindow,
                 GetMessageA, GetWindowPlacement, GetWindowTextW, GetWindowThreadProcessId,
-                LoadCursorW, LoadImageA, LoadImageW, PostQuitMessage, RegisterClassA,
+                LoadCursorW, LoadImageA, PostQuitMessage, RegisterClassA,
                 SetForegroundWindow, ShowWindow, TranslateMessage, HICON, HWND_TOP, IDC_ARROW,
-                IMAGE_ICON, LOADIMAGE_HANDLE, LR_DEFAULTSIZE, LR_LOADFROMFILE, MSG, SWP_DRAWFRAME,
+                IMAGE_ICON, LR_LOADFROMFILE, MSG, SWP_DRAWFRAME,
                 SWP_SHOWWINDOW, SW_HIDE, SW_MAXIMIZE, SW_NORMAL, SW_SHOWMAXIMIZED,
                 SW_SHOWMINIMIZED, WINDOWPLACEMENT, WINDOW_EX_STYLE, WINDOW_STYLE, WM_DESTROY,
                 WM_NULL, WNDCLASSA, WNDCLASS_STYLES,

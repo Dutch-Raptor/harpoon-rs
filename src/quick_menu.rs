@@ -6,11 +6,10 @@ use std::{
 
 use fltk::{
     app::{self, event_key, event_state, event_text},
-    enums::{Align, Color, Event, FrameType, Key, Shortcut},
+    enums::{Align, Color, Event, FrameType},
     frame::Frame,
     group::{Flex, Group},
     prelude::*,
-    text::TextDisplay,
     window::Window,
 };
 use serde::{Deserialize, Serialize};
@@ -303,6 +302,10 @@ impl QuickMenu {
         let window = &mut self.quick_menu_window;
         self.state.open = true;
         window.show();
+        let (screen_width, screen_height) = app::screen_size();
+        let (screen_width, screen_height) = (screen_width as i32, screen_height as i32);
+        let (width, height) = (window.width(), window.height());
+        window.set_pos(screen_width / 2 - width / 2, screen_height / 2 - height / 2);
         let hwnd = HWND(window.raw_handle() as isize);
 
         unsafe {

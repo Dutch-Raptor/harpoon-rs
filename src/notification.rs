@@ -1,16 +1,15 @@
-use std::{ffi::CString, io::Write};
+use std::{io::Write};
 
 use anyhow::Result;
 use windows::{
-    core::{PCSTR, PCWSTR},
+    core::{PCSTR},
     Win32::{
         Foundation::HWND,
-        Graphics::Gdi::LoadBitmapA,
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             Shell::{self, NOTIFYICONDATAA},
             WindowsAndMessaging::{
-                LoadImageA, LoadImageW, HICON, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE,
+                LoadImageA, HICON, IMAGE_ICON, LR_LOADFROMFILE,
             },
         },
     },
