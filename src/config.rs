@@ -24,6 +24,10 @@ pub struct QuickMenuAction {
 
 impl QuickMenuAction {
     pub fn is_triggered(&self, event_key: Key, event_state: Shortcut, event_text: &str) -> bool {
+        // Remove a random bit from the event_state, this is a hack to make sure that the event_state is the same as the one that is stored in the config
+        let mut event_state = event_state;
+        event_state.remove(Shortcut::from_i32(0x100000));
+
         self.trigger
             .is_triggered(event_key, event_state, event_text)
     }
