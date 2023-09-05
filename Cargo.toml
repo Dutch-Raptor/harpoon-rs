@@ -7,16 +7,16 @@ edition = "2021"
 
 [dependencies]
 active-win-pos-rs = "0.7.1"
-fltk = "1.4.1"
+fltk = { version = "1.4.1", features = ["fltk-bundled"]}
 lazy_static = "1.4.0"
 serde = "1.0.160"
 serde_json = "1.0.96"
-mki = { path = "../mki-rust-inhibit-hotkey/" }
 crossbeam = "0.8.2"
 crossbeam-channel = "0.5.8"
 notify-rust = "4.8.0"
 rust-embed = "6.8.1"
 anyhow = "1.0.71"
+mki = { path = "src/mki" }
 
 
 [dependencies.windows]
