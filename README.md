@@ -18,7 +18,7 @@ _Or clone the repository and use `cargo install --path .`_
 
 ## Keybinds
 
-These are all the keybinds that can be used to interact with harpoon.
+These are all the default keybinds that can be used to interact with harpoon.
 
 ### Key binds when not in the menu 
 
@@ -46,8 +46,8 @@ These are all the keybinds that can be used to interact with harpoon.
 | Confirm selection | Enter, Space |
 | Move selection down | &darr;, J |
 | Move selection up | &uarr;, K |
-| Swap down | (L)Alt + &darr;, (L) + J |
+| Swap down | (L)Alt + &darr;, (L)Alt + J |
 | Swap up | (L)Alt + &uarr;, (L)Alt + K |
 | Cut | Backspace, (L)Shift + D |
 | Paste Down | P |
-| Paste Up | (L) Shift + P |
+| Paste Up | (L)Shift + P |
