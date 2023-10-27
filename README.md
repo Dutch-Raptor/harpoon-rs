@@ -4,6 +4,12 @@ Harpoon-rs allows you to bind application windows to a quick select menu.
 Windows added to harpoon can be managed in the menu which can be opened with **(L)Ctrl + (L)Alt + H**.
 The top eight windows are focusable with a dedicated keybind.
 
+## Known issues:
+
+- Harpoon stops responding after locking my device with `WIN + L` or using `CTRL + ALT + DEL`/`CTRL SHIFT ESC`
+  To fix this issue, simply reactivate those buttons individually.
+  Windows takes over keyboard input the moment these shortcuts are hit, causing harpoon to not realise they're no longer pressed. Simply hitting them again fixes this.
+
 ## Supported platforms
 
 - Windows only for now
