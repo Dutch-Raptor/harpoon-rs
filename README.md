@@ -22,6 +22,10 @@ cargo install --git https://github.com/Dutch-Raptor/harpoon-rs --locked harpoon-
 
 _Or clone the repository and use `cargo install --path .`_
 
+## Administrator privilage
+
+Administrator privilage is only required if you want to add a program to harpoon that is running as administrator.
+
 ## Keybinds
 
 These are all the default keybinds that can be used to interact with harpoon.
