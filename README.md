@@ -14,6 +14,10 @@ The top eight windows are focusable with a dedicated keybind.
 
 - Windows only for now
 
+## Behaviour
+
+When adding an application with **(L)Ctrl + (L)Alt + A** the location and size of the application are stored. Switching to the application with keybinds restores the application to this possition. In order to update the location and size simply use the same key combo again.
+
 ## Installation
 
 ```sh
